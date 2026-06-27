@@ -1,0 +1,17 @@
+# ─── Telamon Configuration ────────────────────────────────────────────────────
+
+[server]
+# Port to listen on  (requires sudo / admin to bind ports < 1024)
+port        = 80
+host        = "0.0.0.0"
+
+# Directory that contains .lua route scripts
+scripts_dir = "scripts"
+
+# Directory for static files (CSS, JS, images).  Leave blank to disable.
+static_dir  = "static"
+
+[lua]
+# true  → full standard library access (os, io, debug, ffi…)
+# false → safe subset only (base, table, string, math)
+unsandboxed = true
