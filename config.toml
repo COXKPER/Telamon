@@ -11,4 +11,4 @@ public_dir  = "public"
 [lua]
 # true  → full standard library access (os, io, debug, ffi…)
 # false → safe subset only (base, table, string, math)
-unsandboxed = false
+unsandboxed = true

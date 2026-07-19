@@ -2,12 +2,18 @@ package main
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	lua "github.com/yuin/gopher-lua"
 )
 
 const ldbUserData = "leveldb_db"
+
+var (
+	globalDBsMutex sync.Mutex
+	globalDBs      = make(map[string]*leveldb.DB)
+)
 
 func registerLdb(L *lua.LState) {
 	mt := L.NewTypeMetatable(ldbUserData)
@@ -32,10 +38,18 @@ func ldbCreate(L *lua.LState) int {
 		path = L.CheckString(1)
 	}
 
-	db, err := leveldb.OpenFile(path, nil)
-	if err != nil {
-		L.RaiseError("failed to open leveldb at %s: %v", path, err)
-		return 0
+	globalDBsMutex.Lock()
+	defer globalDBsMutex.Unlock()
+
+	db, ok := globalDBs[path]
+	if !ok {
+		var err error
+		db, err = leveldb.OpenFile(path, nil)
+		if err != nil {
+			L.RaiseError("failed to open leveldb at %s: %v", path, err)
+			return 0
+		}
+		globalDBs[path] = db
 	}
 
 	ud := L.NewUserData()
@@ -90,10 +104,7 @@ func ldbDelete(L *lua.LState) int {
 }
 
 func ldbClose(L *lua.LState) int {
-	db := checkDB(L, 1)
-	if err := db.Close(); err != nil {
-		L.RaiseError("leveldb close error: %v", err)
-	}
+	// No-op: The connection is now shared and globally managed
 	return 0
 }
 
