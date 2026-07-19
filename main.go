@@ -26,10 +26,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port       int    `toml:"port"`
-	Host       string `toml:"host"`
-	ScriptsDir string `toml:"scripts_dir"`
-	StaticDir  string `toml:"static_dir"`
+	Port      int    `toml:"port"`
+	Host      string `toml:"host"`
+	PublicDir string `toml:"public_dir"`
 }
 
 type LuaConfig struct {
@@ -53,8 +52,7 @@ func main() {
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	log.Printf("[Telamon] v%s  →  http://%s", Version, addr)
-	log.Printf("[Telamon] Scripts : ./%s", cfg.Server.ScriptsDir)
-	log.Printf("[Telamon] Static  : ./%s", cfg.Server.StaticDir)
+	log.Printf("[Telamon] Public  : ./%s", cfg.Server.PublicDir)
 	log.Printf("[Telamon] Lua     : unsandboxed=%v", cfg.Lua.Unsandboxed)
 
 	if err := http.ListenAndServe(addr, mux); err != nil {
@@ -74,23 +72,40 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Fall back to static files
-	if cfg.Server.StaticDir != "" {
-		staticPath := filepath.Join(cfg.Server.StaticDir, filepath.Clean(r.URL.Path))
-		if info, err := os.Stat(staticPath); err == nil && !info.IsDir() {
-			http.ServeFile(w, r, staticPath)
+	if cfg.Server.PublicDir != "" {
+		// Security: Prevent serving .lua files as static files
+		if strings.HasSuffix(r.URL.Path, ".lua") {
+			http.NotFound(w, r)
 			return
+		}
+
+		cleanPath := filepath.Clean(r.URL.Path)
+		staticPath := filepath.Join(cfg.Server.PublicDir, cleanPath)
+		
+		publicAbs, err := filepath.Abs(cfg.Server.PublicDir)
+		if err == nil {
+			staticAbs, err2 := filepath.Abs(staticPath)
+			if err2 == nil {
+				// Guard against path traversal for static files
+				if strings.HasPrefix(staticAbs, publicAbs+string(filepath.Separator)) || staticAbs == publicAbs {
+					if info, err3 := os.Stat(staticAbs); err3 == nil && !info.IsDir() {
+						http.ServeFile(w, r, staticAbs)
+						return
+					}
+				}
+			}
 		}
 	}
 
 	http.NotFound(w, r)
 }
 
-// resolveLuaScript maps a URL path → .lua file inside the scripts directory.
+// resolveLuaScript maps a URL path → .lua file inside the public directory.
 // Resolution order:
-//  1. scripts/<path>.lua
-//  2. scripts/<path>/index.lua
+//  1. public/<path>.lua
+//  2. public/<path>/index.lua
 func resolveLuaScript(urlPath string) string {
-	scriptsAbs, err := filepath.Abs(cfg.Server.ScriptsDir)
+	publicAbs, err := filepath.Abs(cfg.Server.PublicDir)
 	if err != nil {
 		return ""
 	}
@@ -102,16 +117,16 @@ func resolveLuaScript(urlPath string) string {
 	clean = strings.TrimPrefix(clean, string(filepath.Separator))
 
 	for _, candidate := range []string{
-		filepath.Join(cfg.Server.ScriptsDir, clean+".lua"),
-		filepath.Join(cfg.Server.ScriptsDir, clean, "index.lua"),
+		filepath.Join(cfg.Server.PublicDir, clean+".lua"),
+		filepath.Join(cfg.Server.PublicDir, clean, "index.lua"),
 	} {
 		abs, err := filepath.Abs(candidate)
 		if err != nil {
 			continue
 		}
 		// Guard against path traversal
-		if !strings.HasPrefix(abs, scriptsAbs+string(filepath.Separator)) &&
-			abs != scriptsAbs {
+		if !strings.HasPrefix(abs, publicAbs+string(filepath.Separator)) &&
+			abs != publicAbs {
 			continue
 		}
 		if _, err := os.Stat(abs); err == nil {
@@ -296,6 +311,8 @@ func executeLua(w http.ResponseWriter, r *http.Request, scriptPath string) {
 	L.SetGlobal("response", resT)
 	L.SetGlobal("json", jsonT)
 	L.SetGlobal("telamon", telaT)
+	
+	registerLdb(L)
 
 	// ── execute ───────────────────────────────────────────────────────────────
 

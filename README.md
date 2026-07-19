@@ -116,6 +116,9 @@ response:json({
 | `response:redirect(url [, code])` | HTTP redirect (default 302) |
 | `json.encode(value)` | Lua value → JSON string |
 | `json.decode(str)` | JSON string → Lua table |
+| `ldb.create(path)` | Open LevelDB at `path` and return `db` object |
+| `ldb.execute(cmd, db)` | Run command (`"PUT key val"`, `"GET key"`, `"DEL key"`) on `db` |
+| `db:put(k, v) / db:get(k) / db:delete(k)`| Native LevelDB KV operations |
 | `telamon.log(...)` | Log to server console (not HTTP response) |
 | `print(...)` | Write to HTTP response body |
 

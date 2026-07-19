@@ -120,6 +120,30 @@ All other tables are encoded as JSON objects.
 | `telamon.version` | Server version string (e.g. `"1.0.0"`) |
 | `telamon.log(...)` | Print to server stdout / journal — **not** to the HTTP response |
 
+### `ldb` (LevelDB)
+
+Provides embedded Key-Value storage via LevelDB.
+
+| Method | Description |
+|---|---|
+| `ldb.create(path)` | Opens a database at `path` and returns a `db` object |
+| `ldb.execute("cmd", db)` | Executes a simple command (e.g. `"PUT key val"`, `"GET key"`, `"DEL key"`) on the `db` object |
+| `db:put(key, val)` | Saves string `val` to `key` |
+| `db:get(key)` | Returns the value of `key` as a string, or `nil` if not found |
+| `db:delete(key)` | Deletes `key` from the database |
+| `db:close()` | Closes the database connection |
+
+Example:
+```lua
+local db = ldb:create("./public/data.db")
+db:put("user", "alice")
+-- or using execute:
+ldb:execute("PUT role admin", db)
+
+local user = ldb:execute("GET user", db)
+db:close()
+```
+
 ### `print`
 
 `print(...)` is overridden to write tab-separated values followed by a newline to the HTTP response body (same as `response:writeln`).
