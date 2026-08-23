@@ -67,6 +67,7 @@ port        = 80          # Port to listen on
 host        = "0.0.0.0"  # Bind address
 scripts_dir = "scripts"   # Lua scripts root
 static_dir  = "static"    # Static files root
+base_url    = ""          # Public origin (e.g. "https://id.example.com"); empty = use Host header
 
 [lua]
 unsandboxed = true        # Full os/io/debug access
@@ -119,6 +120,10 @@ response:json({
 | `ldb.create(path)` | Open LevelDB at `path` and return `db` object |
 | `ldb.execute(cmd, db)` | Run command (`"PUT key val"`, `"GET key"`, `"DEL key"`) on `db` |
 | `db:put(k, v) / db:get(k) / db:delete(k)`| Native LevelDB KV operations |
+| `crypto.pbkdf2_hex(pw, salt, iter)` | PBKDF2-HMAC-SHA256 (Go) → hex digest, for password storage |
+| `crypto.random_hex(n)` / `crypto.random_b64url(n)` | CSPRNG bytes (Go `crypto/rand`) as hex / base64url |
+| `telamon.version` | Server version string |
+| `telamon.base_url` | Public origin from `server.base_url` config (`""` if unset) |
 | `telamon.log(...)` | Log to server console (not HTTP response) |
 | `print(...)` | Write to HTTP response body |
 

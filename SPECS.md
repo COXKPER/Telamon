@@ -24,7 +24,7 @@ Telamon is a lightweight HTTP server written in Go that uses Lua (`.lua`) files 
             ▼
       executeLua()
         ├─ Creates gopher-lua LState
-        ├─ Injects globals: request, response, json, telamon
+        ├─ Injects globals: request, response, json, telamon, ldb, crypto
         ├─ Overrides print() → response buffer
         ├─ DoFile(scriptPath)
         └─ Flushes buffer → http.ResponseWriter
@@ -43,10 +43,19 @@ port        = 80          # TCP port to listen on
 host        = "0.0.0.0"  # Bind address
 scripts_dir = "scripts"   # Root directory for .lua route scripts
 static_dir  = "static"    # Root directory for static file serving
+base_url    = ""          # Externally visible origin (e.g. "https://id.example.com").
+                          # Exposed to scripts as telamon.base_url; empty = derive from Host header.
 
 [lua]
 unsandboxed = true        # true = full stdlib; false = safe subset only
 ```
+
+### `server.base_url`
+
+Optional public origin exposed to scripts as `telamon.base_url`. Use it whenever URLs are
+constructed server-side (issuer/discovery documents, absolute redirects) so the request
+`Host` header is never trusted. Leave empty in development to fall back to
+`"http://" .. request.host`.
 
 ### `lua.unsandboxed`
 
@@ -118,7 +127,31 @@ All other tables are encoded as JSON objects.
 | Field / Method | Description |
 |---|---|
 | `telamon.version` | Server version string (e.g. `"1.0.0"`) |
+| `telamon.base_url` | Configured public origin (`server.base_url`), or `""` when unset |
 | `telamon.log(...)` | Print to server stdout / journal — **not** to the HTTP response |
+
+### `crypto`
+
+Cryptographic bridge implemented in Go (`lua_crypto.go`) using only the standard
+library — PBKDF2-HMAC-SHA256 and a CSPRNG. Pure-Lua hashing is orders of magnitude
+too slow for password storage; use these instead.
+
+| Function | Description |
+|---|---|
+| `crypto.pbkdf2_hex(password, salt, iterations)` | Derives a 32-byte key with PBKDF2-HMAC-SHA256 (RFC 8018) and returns it as lowercase hex. `iterations` must be `1..10_000_000`. |
+| `crypto.random_hex(num_bytes)` | Returns `num_bytes` (1..1024) of CSPRNG output as lowercase hex. |
+| `crypto.random_b64url(num_bytes)` | Returns `num_bytes` (1..1024) of CSPRNG output as unpadded base64url. |
+
+Example — password hashing:
+```lua
+local salt     = crypto.random_hex(16)
+local rounds   = 100000
+local stored   = "atlas_pbkdf2$" .. rounds .. "$" .. salt .. "$"
+               .. crypto.pbkdf2_hex(password, salt, rounds)
+```
+
+Verification re-derives the digest with the **stored** salt and iteration count and
+compares it against the stored hash.
 
 ### `ldb` (LevelDB)
 
