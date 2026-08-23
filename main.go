@@ -29,6 +29,9 @@ type ServerConfig struct {
 	Port      int    `toml:"port"`
 	Host      string `toml:"host"`
 	PublicDir string `toml:"public_dir"`
+	// BaseURL is the externally visible origin, e.g. "https://id.example.com".
+	// Used to build issuer URLs instead of trusting the Host header (T6).
+	BaseURL string `toml:"base_url"`
 }
 
 type LuaConfig struct {
@@ -284,6 +287,7 @@ func executeLua(w http.ResponseWriter, r *http.Request, scriptPath string) {
 
 	telaT := L.NewTable()
 	L.SetField(telaT, "version", lua.LString(Version))
+	L.SetField(telaT, "base_url", lua.LString(cfg.Server.BaseURL))
 
 	// telamon.log(...) → writes to server stdout, not to HTTP response
 	L.SetField(telaT, "log", L.NewFunction(func(L *lua.LState) int {
@@ -313,6 +317,7 @@ func executeLua(w http.ResponseWriter, r *http.Request, scriptPath string) {
 	L.SetGlobal("telamon", telaT)
 	
 	registerLdb(L)
+	registerCrypto(L)
 
 	// ── execute ───────────────────────────────────────────────────────────────
 

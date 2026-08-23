@@ -1,12 +1,16 @@
 # ─── Telamon Configuration ────────────────────────────────────────────────────
 
 [server]
-# Port to listen on  (requires sudo / admin to bind ports < 1024)
-port        = 80
+# Port to listen on
+port        = 8081
 host        = "0.0.0.0"
 
 # Directory for static files and .lua route scripts
 public_dir  = "public"
+
+# Externally visible origin used to build issuer/discovery URLs.
+# Leave empty to derive from the request Host header (dev only — T6).
+base_url    = ""
 
 [lua]
 # true  → full standard library access (os, io, debug, ffi…)
