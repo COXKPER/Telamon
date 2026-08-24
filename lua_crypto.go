@@ -1,11 +1,14 @@
 package main
 
 import (
+	"crypto/ecdsa"
 	"crypto/hmac"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"math/big"
 
 	lua "github.com/yuin/gopher-lua"
 )
@@ -90,6 +93,42 @@ func registerCrypto(L *lua.LState) {
 			L.RaiseError("crypto.random_b64url: %v", err)
 		}
 		L.Push(lua.LString(base64.RawURLEncoding.EncodeToString(b)))
+		return 1
+	}))
+
+	// crypto.sha256_raw(message) -> raw 32-byte digest as a Go string (binary-safe)
+	L.SetField(t, "sha256_raw", L.NewFunction(func(L *lua.LState) int {
+		msg := []byte(L.CheckString(1))
+		sum := sha256.Sum256(msg)
+		L.Push(lua.LString(string(sum[:])))
+		return 1
+	}))
+
+	// crypto.p256_verify(msg, rB64u, sB64u, xB64u, yB64u) -> boolean
+	// Verifies an ECDSA P-256 (ES256) signature over SHA-256(message).
+	// All big integers are unpadded base64url. Used by the WebAuthn bridge.
+	L.SetField(t, "p256_verify", L.NewFunction(func(L *lua.LState) int {
+		msg := []byte(L.CheckString(1))
+		dec := func(s string) *big.Int {
+			b, err := base64.RawURLEncoding.DecodeString(s)
+			if err != nil {
+				L.ArgError(2, "invalid base64url component")
+			}
+			return new(big.Int).SetBytes(b)
+		}
+		r := dec(L.CheckString(2))
+		s := dec(L.CheckString(3))
+		x := dec(L.CheckString(4))
+		y := dec(L.CheckString(5))
+
+		if !elliptic.P256().IsOnCurve(x, y) {
+			L.Push(lua.LBool(false))
+			return 1
+		}
+		digest := sha256.Sum256(msg)
+		pub := &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+		ok := ecdsa.Verify(pub, digest[:], r, s)
+		L.Push(lua.LBool(ok))
 		return 1
 	}))
 

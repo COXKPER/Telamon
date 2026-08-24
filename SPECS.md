@@ -141,6 +141,8 @@ too slow for password storage; use these instead.
 | `crypto.pbkdf2_hex(password, salt, iterations)` | Derives a 32-byte key with PBKDF2-HMAC-SHA256 (RFC 8018) and returns it as lowercase hex. `iterations` must be `1..10_000_000`. |
 | `crypto.random_hex(num_bytes)` | Returns `num_bytes` (1..1024) of CSPRNG output as lowercase hex. |
 | `crypto.random_b64url(num_bytes)` | Returns `num_bytes` (1..1024) of CSPRNG output as unpadded base64url. |
+| `crypto.sha256_raw(message)` | Returns the 32-byte SHA-256 digest as a binary-safe string. |
+| `crypto.p256_verify(msg, r, s, x, y)` | Verifies an ECDSA P-256 (ES256) signature over SHA-256(`msg`). All big integers (`r`, `s`, `x`, `y`) are unpadded base64url. Returns boolean. Used for WebAuthn/FIDO2 assertions. |
 
 Example — password hashing:
 ```lua
