@@ -41,8 +41,7 @@ Override with: `--config <path>`
 [server]
 port        = 80          # TCP port to listen on
 host        = "0.0.0.0"  # Bind address
-scripts_dir = "scripts"   # Root directory for .lua route scripts
-static_dir  = "static"    # Root directory for static file serving
+public_dir = "public"    # Root for .lua routes AND static assets
 base_url    = ""          # Externally visible origin (e.g. "https://id.example.com").
                           # Exposed to scripts as telamon.base_url; empty = derive from Host header.
 
@@ -70,14 +69,18 @@ constructed server-side (issuer/discovery documents, absolute redirects) so the 
 
 Given a request for `GET /foo/bar`:
 
-1. Check `scripts/foo/bar.lua` — serve if found.
-2. Check `scripts/foo/bar/index.lua` — serve if found.
-3. Check `static/foo/bar` — serve file if found.
+1. Check `public/foo/bar.lua` — execute if found.
+2. Check `public/foo/bar/index.lua` — execute if found.
+3. Check `public/foo/bar` — serve as a static file if it exists.
 4. Return `404 Not Found`.
+
+Requests whose path ends in `.lua` are always rejected with `404` so scripts are
+never served as source. Resolved paths must stay inside `public_dir`
+(path traversal is blocked).
 
 Root path `/` resolves to `scripts/index.lua`.
 
-Path traversal is blocked: resolved paths must stay inside `scripts_dir`.
+Path traversal is blocked: resolved paths must stay inside `public_dir`.
 
 ---
 
@@ -202,16 +205,15 @@ db:close()
 **Config:** `/etc/telamon/config.toml`  
 **Working directory:** `/etc/telamon`
 
-The server reads `scripts_dir` and `static_dir` **relative to `WorkingDirectory`**, so set those in `config.toml` as relative paths (e.g. `scripts_dir = "scripts"`) and place the script tree under `/etc/telamon/scripts/`.
+The server reads `public_dir` **relative to `WorkingDirectory`**, so keep it a relative path (e.g. `public_dir = "public"`) and place the application tree under that directory.
 
 ```
 /etc/telamon/
 ├── config.toml
-├── scripts/
-│   ├── index.lua
-│   └── api/
-│       └── hello.lua
-└── static/
+└── public/
+    ├── index.lua
+    └── api/
+        └── hello.lua
     └── ...
 ```
 
@@ -224,7 +226,7 @@ go build -o /usr/local/bin/telamon .
 # 2. Create config directory and copy files
 sudo mkdir -p /etc/telamon/scripts /etc/telamon/static
 sudo cp config.toml /etc/telamon/
-sudo cp -r scripts/* /etc/telamon/scripts/
+sudo mkdir -p /opt/telamon/public && sudo cp -r public/* /opt/telamon/public/
 
 # 3. Install and start service
 sudo cp telamon.service /etc/systemd/system/

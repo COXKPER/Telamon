@@ -1,6 +1,20 @@
+# Binary / built artifacts
 telamon
-public/social.db/
-public/storage/
-public/
+
+# Application runtime data — NEVER commit these
 atlascloak.db/
-test_oidc_client.py
+atlascloak.db
+backups/
+*.db
+
+# AtlasCloak application lives in its own repository:
+# https://github.com/COXKPER/AtlasCloak
+public/
+
+# Dev-only test harnesses (belong to AtlasCloak)
+test_*.py
+
+# OS & editor
+.DS_Store
+*.swp
+*.swo
